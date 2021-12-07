@@ -59,9 +59,11 @@ case "${1}" in
     "build")
         # Build releases for various operating systems:
         build-for "linux" "amd64"
+        build-for "linux" "arm"
         build-for "darwin" "amd64"
-        build-for "windows" "amd64"
-        build-for "freebsd" "amd64"
+        build-for "darwin" "arm64"
+        #build-for "windows" "amd64"
+        #build-for "freebsd" "amd64"
         exit 0
         ;;
     "sign")
