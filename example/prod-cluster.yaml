@@ -2,6 +2,11 @@
 context: k8s.prod.mydomain.com
 global:
   globalVar: lizards
+
+helmRepositories:
+  - name: ory
+    url: https://k8s.ory.sh/helm/charts
+
 include:
   # By default resource sets are included from a folder with the same
   # name as the resource set's name
@@ -15,3 +20,7 @@ include:
   # files!)
   - name: other-config
     path: other-config.yaml
+  - name: helm-service
+    chart: ory/kratos
+    type: helm
+

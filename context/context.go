@@ -14,12 +14,23 @@ import (
 	"path"
 	"strings"
 
-	"github.com/tazjin/kontemplate/util"
+	"../util"
 )
 
+type HelmRepo struct {
+	Name string `json:"name"`
+	URL string `json:"url"`
+}
+
 type ResourceSet struct {
+	// Type of the resource set, either "kubectl" or "helm"
+	Type string `json:"type"`
+
 	// Name of the resource set. This can be used in include/exclude statements during kontemplate runs.
 	Name string `json:"name"`
+
+	// Helm chart name, required if Type == "helm"
+	Chart string `json:"chart"`
 
 	// Path to the folder containing the files for this resource set. This defaults to the value of the 'name' field
 	// if unset.
@@ -47,6 +58,9 @@ type Context struct {
 
 	// File names of YAML or JSON files including extra variables that should be globally accessible
 	VariableImportFiles []string `json:"import"`
+
+	// The helm repositories to include in this context
+	HelmRepositories []HelmRepo `json:"helmRepositories"`
 
 	// The resource sets to include in this context
 	ResourceSets []ResourceSet `json:"include"`
@@ -146,12 +160,20 @@ func flattenPrepareResourceSetPaths(rs *[]ResourceSet) []ResourceSet {
 			r.Path = r.Name
 		}
 
+		if r.Type == "" {
+			r.Type = "kubectl"
+		}
+
 		if len(r.Include) == 0 {
 			flattened = append(flattened, r)
 		} else {
 			for _, subResourceSet := range r.Include {
 				if subResourceSet.Path == "" {
 					subResourceSet.Path = subResourceSet.Name
+				}
+
+				if subResourceSet.Type == "" {
+					subResourceSet.Type = "kubectl"
 				}
 
 				subResourceSet.Parent = r.Name

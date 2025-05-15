@@ -21,8 +21,8 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig"
-	"github.com/tazjin/kontemplate/context"
-	"github.com/tazjin/kontemplate/util"
+	"../context"
+	"../util"
 )
 
 const failOnMissingKeys string = "missingkey=error"
@@ -33,7 +33,9 @@ type RenderedResource struct {
 }
 
 type RenderedResourceSet struct {
+	Type      string
 	Name      string
+	Chart     string
 	Resources []RenderedResource
 	Args      []string
 }
@@ -93,7 +95,9 @@ func processResourceSet(ctx *context.Context, rs *context.ResourceSet) (*Rendere
 	}
 
 	return &RenderedResourceSet{
+		Type:      rs.Type,
 		Name:      rs.Name,
+		Chart:     rs.Chart,
 		Resources: resources,
 		Args:      rs.Args,
 	}, nil

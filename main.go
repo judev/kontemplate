@@ -39,6 +39,7 @@ var (
 	excludes   = app.Flag("exclude", "Resource sets to exclude explicitly").Short('e').Strings()
 	variables  = app.Flag("var", "Provide variables to templates explicitly").Strings()
 	kubectlBin = app.Flag("kubectl", "Path to the kubectl binary (default 'kubectl')").Default("kubectl").String()
+	helmBin = app.Flag("helm", "Path to the helm binary (default 'helm')").Default("helm").String()
 
 	// Commands
 	template          = app.Command("template", "Template resource sets and print them")
@@ -144,43 +145,56 @@ func templateIntoDirectory(outputDir *string, rs templater.RenderedResourceSet) 
 func applyCommand() {
 	ctx, resources := loadContextAndResources(applyFile)
 
+	setupHelmRepositories(ctx)
+
 	var kubectlArgs []string
+	var helmArgs []string
 
 	if *applyDryRun {
 		kubectlArgs = []string{"apply", "-f", "-", "--dry-run"}
+		helmArgs = []string{"upgrade", "-i", "-f", "-", "--dry-run"}
 	} else {
 		kubectlArgs = []string{"apply", "-f", "-"}
+		helmArgs = []string{"upgrade", "-i", "-f", "-"}
 	}
 
-	if err := runKubectlWithResources(ctx, &kubectlArgs, resources); err != nil {
-		failWithKubectlError(err)
+	if err := applyResourcesToCluster(ctx, &kubectlArgs, &helmArgs, resources); err != nil {
+		failWithError("apply", err)
 	}
 }
 
 func replaceCommand() {
 	ctx, resources := loadContextAndResources(replaceFile)
-	args := []string{"replace", "--save-config=true", "-f", "-"}
+	setupHelmRepositories(ctx)
 
-	if err := runKubectlWithResources(ctx, &args, resources); err != nil {
-		failWithKubectlError(err)
+	args := []string{"replace", "--save-config=true", "-f", "-"}
+	var helmArgs []string
+
+	if err := applyResourcesToCluster(ctx, &args, &helmArgs, resources); err != nil {
+		failWithError("replace", err)
 	}
 }
 
 func deleteCommand() {
 	ctx, resources := loadContextAndResources(deleteFile)
 	args := []string{"delete", "-f", "-"}
+	var helmArgs []string
 
-	if err := runKubectlWithResources(ctx, &args, resources); err != nil {
-		failWithKubectlError(err)
+	if err := applyResourcesToCluster(ctx, &args, &helmArgs, resources); err != nil {
+		failWithError("delete", err)
 	}
 }
 
 func createCommand() {
 	ctx, resources := loadContextAndResources(createFile)
-	args := []string{"create", "--save-config=true", "-f", "-"}
 
-	if err := runKubectlWithResources(ctx, &args, resources); err != nil {
-		failWithKubectlError(err)
+	setupHelmRepositories(ctx)
+
+	args := []string{"create", "--save-config=true", "-f", "-"}
+	var helmArgs []string
+
+	if err := applyResourcesToCluster(ctx, &args, &helmArgs, resources); err != nil {
+		failWithError("create", err)
 	}
 }
 
@@ -198,8 +212,26 @@ func loadContextAndResources(file *string) (*context.Context, *[]templater.Rende
 	return ctx, &resources
 }
 
-func runKubectlWithResources(c *context.Context, kubectlArgs *[]string, resourceSets *[]templater.RenderedResourceSet) error {
+func setupHelmRepositories(ctx *context.Context) {
+	for _, repo := range ctx.HelmRepositories {
+		helm := exec.Command(*helmBin, []string{"repo", "add", repo.Name, repo.URL}...)
+
+		helm.Stdout = os.Stdout
+		helm.Stderr = os.Stderr
+
+		if err := helm.Start(); err != nil {
+			failWithError("setup helm repositories", fmt.Errorf("helm error: %v", err))
+		}
+		if err := helm.Wait(); err != nil {
+			failWithError("setup helm repositories", err)
+		}
+	}
+
+}
+
+func applyResourcesToCluster(c *context.Context, kubectlArgs *[]string, helmArgs *[]string, resourceSets *[]templater.RenderedResourceSet) error {
 	argsWithContext := append(*kubectlArgs, fmt.Sprintf("--context=%s", c.Name))
+	helmArgsWithContext := append(*helmArgs, fmt.Sprintf("--kube-context=%s", c.Name))
 
 	for _, rs := range *resourceSets {
 		if len(rs.Resources) == 0 {
@@ -207,9 +239,18 @@ func runKubectlWithResources(c *context.Context, kubectlArgs *[]string, resource
 			continue
 		}
 
-		argsWithResourceSetArgs := append(argsWithContext, rs.Args...)
+		var kubectl *exec.Cmd
 
-		kubectl := exec.Command(*kubectlBin, argsWithResourceSetArgs...)
+		if rs.Type == "helm" {
+			helmArgs := []string{ rs.Name, rs.Chart }
+			argsWithResourceSetArgs := append(append(helmArgsWithContext, helmArgs...), rs.Args...)
+
+			kubectl = exec.Command(*helmBin, argsWithResourceSetArgs...)
+		} else {
+			argsWithResourceSetArgs := append(argsWithContext, rs.Args...)
+
+			kubectl = exec.Command(*kubectlBin, argsWithResourceSetArgs...)
+		}
 
 		stdin, err := kubectl.StdinPipe()
 		if err != nil {
@@ -237,6 +278,6 @@ func runKubectlWithResources(c *context.Context, kubectlArgs *[]string, resource
 	return nil
 }
 
-func failWithKubectlError(err error) {
-	app.Fatalf("Kubectl error: %v\n", err)
+func failWithError(what string, err error) {
+	app.Fatalf("%s error: %v\n", what, err)
 }
