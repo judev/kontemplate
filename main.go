@@ -26,9 +26,8 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 )
 
-const version string = "1.7.0"
-
-// This variable will be initialised by the Go linker during the builder
+// These variables will be initialised by the Go linker during the builder
+var version string = "0.0.0"
 var gitHash string
 
 var (
@@ -88,9 +87,9 @@ func main() {
 
 func versionCommand() {
 	if gitHash == "" {
-		fmt.Printf("Kontemplate version %s (git commit unknown)\n", version)
+		fmt.Printf("%s-unknown\n", version)
 	} else {
-		fmt.Printf("Kontemplate version %s (git commit: %s)\n", version, gitHash)
+		fmt.Printf("%s-%s\n", version, gitHash)
 	}
 }
 

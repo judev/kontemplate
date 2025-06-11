@@ -10,9 +10,9 @@ set -ueo pipefail
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+readonly TAG=$(date '+%y%m%d.%H%M')
 readonly GIT_HASH="$(git rev-parse --short HEAD)"
-readonly LDFLAGS="-X main.gitHash=${GIT_HASH} -w -s"
-readonly VERSION="1.7.0-${GIT_HASH}"
+readonly LDFLAGS="-X main.gitHash=${GIT_HASH} -X main.version=${TAG} -w -s"
 
 function binary-name() {
     local os="${1}"
@@ -45,6 +45,7 @@ function sign-for() {
     local arch="${2}"
     local target="release/${os}/${arch}"
     local bin=$(binary-name "${os}" "${target}")
+    local VERSION=$(release/linux/amd64/kontemplate version)
     local tar="release/kontemplate-${VERSION}-${os}-${arch}.tar.gz"
 
     echo "Packing release into ${tar}"
@@ -64,14 +65,15 @@ case "${1}" in
         build-for "darwin" "arm64"
         #build-for "windows" "amd64"
         #build-for "freebsd" "amd64"
+        git tag -a "v${TAG}" -m "Release ${TAG}"
         exit 0
         ;;
     "sign")
         # Bundle and sign releases:
         sign-for "linux" "amd64"
         sign-for "darwin" "amd64"
-        sign-for "windows" "amd64"
-        sign-for "freebsd" "amd64"
+        #sign-for "windows" "amd64"
+        #sign-for "freebsd" "amd64"
         exit 0
         ;;
 esac
