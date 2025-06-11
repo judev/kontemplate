@@ -21,9 +21,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"./context"
-	"./templater"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/judev/kontemplate/context"
+	"github.com/judev/kontemplate/templater"
+	"github.com/alecthomas/kingpin/v2"
 )
 
 const version string = "1.7.0"

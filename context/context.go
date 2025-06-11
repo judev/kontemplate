@@ -14,7 +14,7 @@ import (
 	"path"
 	"strings"
 
-	"../util"
+	"github.com/judev/kontemplate/util"
 )
 
 type HelmRepo struct {
